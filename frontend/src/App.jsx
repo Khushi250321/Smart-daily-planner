@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import Login from "./Login.jsx";
 
-const API_BASE = "https://smart-daily-planner-production.up.railway.app";
+const API_BASE = "http://localhost:5000";
 
 // Same fix as the backend: never use .toISOString() for "today's date" —
 // it converts to UTC and silently shifts the date in IST (or any timezone
@@ -306,6 +306,7 @@ export default function App() {
   const [dashboard, setDashboard] = useState(null); // null = not loaded yet
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const [showBuilder, setShowBuilder] = useState(false); // lets a routine user open the editor
+  const [dailyChoice, setDailyChoice] = useState(null); // 'routine' | 'oneoff' | null — asked fresh each session when a routine exists
 
   // ---- Auth state ----
   const [token, setToken] = useState(() => localStorage.getItem("smartPlannerToken"));
@@ -326,6 +327,7 @@ export default function App() {
     setUser(null);
     setResult(null);
     setDashboard(null);
+    setDailyChoice(null);
   }
 
   if (!token) {
@@ -402,6 +404,7 @@ export default function App() {
         const data = await res.json();
         if (!data.success) throw new Error(data.error || "Could not save your routine.");
         setShowBuilder(false);
+        setDailyChoice("routine");
         await fetchDashboard();
       } else {
         const res = await fetch(`${API_BASE}/api/plan`, {
@@ -468,9 +471,37 @@ export default function App() {
           </section>
         )}
 
+        {/* ---- Landing choice: asked fresh whenever a routine exists ---- */}
+        {!dashboardLoading && dashboard?.hasRoutine && dailyChoice === null && (
+          <section style={styles.card}>
+            <h2 style={styles.cardTitle}>What are you here for today?</h2>
+            <p style={styles.emptyText}>
+              You already have a saved daily routine. Pick one:
+            </p>
+            <div style={styles.choiceRow}>
+              <button
+                onClick={() => setDailyChoice("routine")}
+                style={{ ...styles.generateBtn, ...styles.routineBtn }}
+              >
+                <IconSparkle />
+                Check my routine &amp; tick today
+              </button>
+              <button
+                onClick={() => setDailyChoice("oneoff")}
+                style={{ ...styles.generateBtn, ...styles.oneoffBtn }}
+              >
+                Plan just for today
+              </button>
+            </div>
+          </section>
+        )}
+
         {/* ---- Dashboard: for people who already have a saved routine ---- */}
-        {!dashboardLoading && dashboard?.hasRoutine && !showBuilder && (
+        {!dashboardLoading && dashboard?.hasRoutine && dailyChoice === "routine" && !showBuilder && (
           <>
+            <button onClick={() => setDailyChoice(null)} style={styles.backLink}>
+              ← Back
+            </button>
             <section style={styles.cardAmber}>
               <div style={styles.resultsHeaderRow}>
                 <h2 style={styles.cardTitle}>Today's Consistency</h2>
@@ -598,9 +629,15 @@ export default function App() {
           </>
         )}
 
-        {/* ---- Builder: for new users, or a routine user editing / adding a one-off day ---- */}
-        {!dashboardLoading && (!dashboard?.hasRoutine || showBuilder) && (
+        {/* ---- Builder: for new users, editing a routine, or an explicit one-off plan ---- */}
+        {!dashboardLoading &&
+          (!dashboard?.hasRoutine || showBuilder || dailyChoice === "oneoff") && (
           <>
+            {dashboard?.hasRoutine && !showBuilder && (
+              <button onClick={() => setDailyChoice(null)} style={styles.backLink}>
+                ← Back
+              </button>
+            )}
         {/* ---- Working hours ---- */}
         <section style={styles.cardBlue}>
           <h2 style={styles.cardTitle}>Working hours</h2>
@@ -1234,6 +1271,16 @@ const styles = {
   },
   choiceHint: { fontSize: 12.5, color: "#6B7280", fontWeight: 600, marginTop: 20, marginBottom: 8, textAlign: "center" },
   choiceRow: { display: "flex", gap: 10 },
+  backLink: {
+    background: "transparent",
+    border: "none",
+    color: "#6B7280",
+    fontSize: 12.5,
+    fontWeight: 700,
+    cursor: "pointer",
+    marginBottom: 10,
+    padding: 0,
+  },
   routineBtn: { flex: 1, marginTop: 0 },
   oneoffBtn: {
     flex: 1,
