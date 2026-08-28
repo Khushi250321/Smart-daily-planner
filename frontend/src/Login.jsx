@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "https://smart-daily-planner-production.up.railway.app";
 
 export default function Login({ onLoggedIn }) {
   const [mode, setMode] = useState("login"); // 'login' | 'signup'

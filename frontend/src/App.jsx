@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import Login from "./Login.jsx";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "https://smart-daily-planner-production.up.railway.app";
 
 // Same fix as the backend: never use .toISOString() for "today's date" —
 // it converts to UTC and silently shifts the date in IST (or any timezone
