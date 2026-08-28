@@ -16,7 +16,7 @@ const pool = new Pool({
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 const app = express();
-app.use(cors());
+app.use(cors({ origin: "https://smart-daily-planner-tan.vercel.app" }));
 app.use(express.json());
 
 // Auth routes: POST /api/auth/signup, POST /api/auth/login — no login required to hit these
