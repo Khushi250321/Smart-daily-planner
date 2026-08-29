@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import Login from "./Login.jsx";
 
-const API_BASE =  "https://smart-daily-planner-production.up.railway.app"; 
+const API_BASE = "https://smart-daily-planner-production.up.railway.app";
 
 // Same fix as the backend: never use .toISOString() for "today's date" —
 // it converts to UTC and silently shifts the date in IST (or any timezone
@@ -354,7 +354,7 @@ export default function App() {
   async function fetchDashboard() {
     setDashboardLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/dashboard/today`, {
+      const res = await fetch(`${API_BASE}/api/dashboard/today?date=${todayLocalDateStr()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();

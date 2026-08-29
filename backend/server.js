@@ -16,7 +16,7 @@ const pool = new Pool({
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 const app = express();
-app.use(cors({ origin: "https://smart-daily-planner-tan.vercel.app" }));
+app.use(cors());
 app.use(express.json());
 
 // Auth routes: POST /api/auth/signup, POST /api/auth/login — no login required to hit these
@@ -199,6 +199,13 @@ app.get("/api/dashboard/today", requireAuth, async (req, res) => {
   try {
     const userId = req.userId;
 
+    // Trust the BROWSER's date, not the server's — the server may run in a
+    // different timezone (e.g. UTC on Railway vs IST for the user), which
+    // caused ticks to "disappear" right around midnight IST. A daily
+    // planner's "today" should always be the person's own local day.
+    const clientDate = req.query.date; // "YYYY-MM-DD" from the frontend
+    const isValidDate = typeof clientDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(clientDate);
+
     const userResult = await pool.query(
       `SELECT routine_day_start_minutes, routine_day_end_minutes FROM users WHERE id = $1`,
       [userId]
@@ -240,7 +247,16 @@ app.get("/api/dashboard/today", requireAuth, async (req, res) => {
       routine_day_end_minutes
     );
 
-    const todayStr = toLocalDateStr(new Date());
+    const todayStr = isValidDate ? clientDate : toLocalDateStr(new Date());
+
+    // Build a date N days before todayStr (string arithmetic via Date,
+    // but always anchored to the CLIENT's today, not the server's).
+    function dateOffsetFrom(baseDateStr, offsetDays) {
+      const [y, m, d] = baseDateStr.split("-").map(Number);
+      const base = new Date(y, m - 1, d);
+      base.setDate(base.getDate() + offsetDays);
+      return toLocalDateStr(base);
+    }
 
     // Today's completion state for every scheduled template
     const templateIds = scheduled.map((t) => t.templateId);
@@ -282,9 +298,7 @@ app.get("/api/dashboard/today", requireAuth, async (req, res) => {
     // Last 7 days' whole-day scores (based on whatever was actually tracked that day)
     const dayScores = [];
     for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const dateStr = toLocalDateStr(d);
+      const dateStr = dateOffsetFrom(todayStr, -i);
       const dayResult = await pool.query(
         `SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE tc.done = TRUE) AS completed
          FROM task_completions tc
@@ -303,9 +317,7 @@ app.get("/api/dashboard/today", requireAuth, async (req, res) => {
     // WHICH specific task was missed on WHICH day, not just an overall %.
     const dateList = [];
     for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      dateList.push(toLocalDateStr(d));
+      dateList.push(dateOffsetFrom(todayStr, -i));
     }
 
     const taskGrid = [];
